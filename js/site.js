@@ -27,40 +27,108 @@
     setTimeout(() => toast.classList.remove("show"), 4200);
   };
 
-  const phoneOk = (v) => /^[\d+\s()-]{10,}$/.test(v.trim());
+  const phoneOk = (v) => {
+    const digits = String(v || "").replace(/\D/g, "");
+    return digits.length >= 10 && digits.length <= 15;
+  };
+
+  const modal = $("#modal-lead");
+  let lastFocus = null;
+
+  const openModal = () => {
+    if (!modal) return;
+    lastFocus = document.activeElement;
+    modal.hidden = false;
+    document.body.classList.add("modal-open");
+    const first = modal.querySelector('input[name="name"]');
+    if (first) first.focus();
+  };
+
+  const closeModal = () => {
+    if (!modal) return;
+    modal.hidden = true;
+    document.body.classList.remove("modal-open");
+    if (lastFocus && typeof lastFocus.focus === "function") lastFocus.focus();
+  };
+
+  $$(".js-open-modal").forEach((btn) => {
+    btn.addEventListener("click", (e) => {
+      e.preventDefault();
+      openModal();
+    });
+  });
+
+  $$(".js-close-modal").forEach((el) => {
+    el.addEventListener("click", () => closeModal());
+  });
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && modal && !modal.hidden) closeModal();
+  });
 
   const calc = $("#calc-form");
+  let submitting = false;
   if (calc) {
     calc.addEventListener("submit", (e) => {
       e.preventDefault();
+      if (submitting) return;
+
       const data = Object.fromEntries(new FormData(calc));
+      if ((data.company || "").trim()) {
+        notify("Заявка не отправлена.");
+        return;
+      }
       if (!(data.name || "").trim()) {
         notify("Укажите имя.");
+        calc.querySelector('[name="name"]')?.focus();
         return;
       }
       if (!phoneOk(data.phone || "")) {
-        notify("Укажите телефон, чтобы специалист мог уточнить расчёт.");
+        notify("Укажите корректный телефон.");
+        calc.querySelector('[name="phone"]')?.focus();
         return;
       }
+      if (!calc.querySelector('[name="consent"]')?.checked) {
+        notify("Нужно согласие на обработку персональных данных.");
+        calc.querySelector('[name="consent"]')?.focus();
+        return;
+      }
+
+      submitting = true;
+      const submitBtn = $("#calc-submit");
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.textContent = "Отправляем…";
+      }
+
       const box = $("#calc-result");
-      box.hidden = false;
-      box.innerHTML = `Заявка принята. Свяжемся с <strong>${data.name.trim()}</strong> по номеру ${data.phone} и уточним детали для расчёта.`;
+      if (box) {
+        box.hidden = false;
+        box.innerHTML = `Заявка принята. Свяжемся с <strong>${data.name.trim()}</strong> по номеру ${data.phone} и уточним детали для расчёта.`;
+      }
       notify("Заявка на расчёт стоимости отправлена.");
-      calc.reset();
+
+      setTimeout(() => {
+        calc.reset();
+        submitting = false;
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.textContent = "Отправить заявку";
+        }
+        if (box) box.hidden = true;
+        closeModal();
+      }, 2200);
     });
   }
 
-  const urgent = $("#urgent-form");
-  if (urgent) {
-    urgent.addEventListener("submit", (e) => {
-      e.preventDefault();
-      const phone = new FormData(urgent).get("phone");
-      if (!phoneOk(String(phone || ""))) {
-        notify("Укажите телефон, чтобы согласовать выезд.");
-        return;
-      }
-      notify("Заявка на вызов специалиста принята. Уточним ситуацию и возможное время.");
-      urgent.reset();
+  const seoMore = $("#seo-more");
+  const seoToggle = $(".js-seo-toggle");
+  if (seoMore && seoToggle) {
+    seoToggle.addEventListener("click", () => {
+      const open = seoMore.hidden;
+      seoMore.hidden = !open;
+      seoToggle.setAttribute("aria-expanded", String(open));
+      seoToggle.textContent = open ? "Свернуть" : "Подробнее";
     });
   }
 
@@ -92,9 +160,10 @@
       cookie.hidden = true;
     });
   }
+
   const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   if (!reduceMotion && "IntersectionObserver" in window) {
-    const nodes = $$(".card, .issue-list li, .object-card, .step, .equip-grid > article, .equip-featured, .faq-item, .calc-box");
+    const nodes = $$(".card, .issue-list li, .object-card, .step, .equip-grid > article, .equip-featured, .faq-item, .calc-box, .hero-badges li");
     const io = new IntersectionObserver((entries) => {
       entries.forEach((entry) => {
         if (!entry.isIntersecting) return;
