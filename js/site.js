@@ -161,7 +161,41 @@
     });
   }
 
+  const heroVideo = $("#hero-video");
+  const trustVideo = $("#trust-video");
   const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (heroVideo) {
+    if (reduceMotion) {
+      heroVideo.pause();
+    } else {
+      const clip = 7;
+      const restart = () => {
+        heroVideo.currentTime = 0.05;
+        heroVideo.play().catch(() => {});
+      };
+      heroVideo.addEventListener("timeupdate", () => {
+        if (heroVideo.currentTime >= clip) restart();
+      });
+      heroVideo.addEventListener("ended", restart);
+      heroVideo.play().catch(() => {});
+    }
+  }
+  if (trustVideo) {
+    if (reduceMotion) {
+      trustVideo.pause();
+    } else if ("IntersectionObserver" in window) {
+      const playWhenSeen = new IntersectionObserver((entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) trustVideo.play().catch(() => {});
+          else trustVideo.pause();
+        });
+      }, { threshold: 0.25 });
+      playWhenSeen.observe(trustVideo);
+    } else {
+      trustVideo.play().catch(() => {});
+    }
+  }
+
   if (!reduceMotion && "IntersectionObserver" in window) {
     const nodes = $$(".card, .issue-list li, .object-card, .step, .equip-grid > article, .equip-featured, .faq-item, .calc-box, .hero-badges li");
     const io = new IntersectionObserver((entries) => {
